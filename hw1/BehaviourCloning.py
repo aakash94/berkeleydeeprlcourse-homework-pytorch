@@ -11,6 +11,7 @@ from Loader import Loader
 from  tqdm import trange
 import torch.optim as optim
 import torch.utils.data.dataloader as dataloader
+from VisdomPlotter import VisdomPlotter
 
 class BehaviourCloning:
 
@@ -64,14 +65,12 @@ class BehaviourCloning:
             self.agent = self.agent.cuda()
 
 
-
     def load_agent(self):
         if self.train_on_gpu:
             self.agent = self.agent.cpu()
         self.agent.load_model(env_string=self.env_string)
         if self.train_on_gpu:
             self.agent = self.agent.cuda()
-
 
 
     def demonstrate(self, num_episode = 1, expert_mode = False):
@@ -179,12 +178,14 @@ class BehaviourCloning:
             print("Invalid parameters")
 
 
-    def teach_agent(self, epochs=1, learn_rate=0.001, batch_size=32):
+    def teach_agent(self, epochs=1, learn_rate=0.0001, batch_size=128, env_name = "BehaviourCloning"):
+        plotter = VisdomPlotter(env_name=env_name)
         expert_loader = Loader(data_collected=self.data_by_expert)
         optimizer = optim.Adam(self.agent.parameters(), lr=learn_rate)
         criterion = nn.MSELoss()
         loader = dataloader.DataLoader(expert_loader, batch_size=batch_size, shuffle=True)
-        for i in trange(epochs):
+        for e in trange(epochs):
+            total_loss = 0.0
             for x,y in loader:
                 if self.train_on_gpu:
                     x = x.float().cuda()
@@ -193,8 +194,11 @@ class BehaviourCloning:
                 output = self.agent(x)
                 #output = output.unsqueeze(0)
                 loss = criterion(output, y)
+                total_loss += loss.item()
                 loss.backward()
                 optimizer.step()
+
+            plotter.plot_line('loss', 'train', 'MSE Loss', e, total_loss)
 
 
     def expert_opinion(self):
@@ -205,34 +209,12 @@ class BehaviourCloning:
 
 
 if __name__ == '__main__':
+
     envs = ['Hopper-v2', 'Ant-v2', 'HalfCheetah-v2', 'Humanoid-v2', 'Reacher-v2', 'Walker2d-v2']
-    print('hello world')
-
-
     environment = envs[0]
+
     bc = BehaviourCloning(env_string=environment, auto=True)
-    bc.get_demonstrations(num_episodes=10, expert_mode=True)
-    bc.teach_agent(epochs=10)
-    #bc.get_demonstration_episode_count(expert_mode=True)
+    bc.get_demonstrations(num_episodes=100, expert_mode=True)
+    bc.teach_agent(epochs=100, env_name=environment)
+    bc.agent.save_model(env_string=environment)
     bc.demonstrate(num_episode=10, expert_mode=False)
-
-    # a = Agent(input_size=2, output_size=2)
-    # print(a)
-    # print("\n")
-    # ip = [[1,2]]
-    # b= a.forward(ip).detach().numpy()
-    # print(b)
-
-    # a = [1,2,3]
-    #
-    # b = np.asarray(a)
-    # c = b.reshape(1,-1)
-    # print(b)
-    # print(c)
-
-    # a = [([1,2,3]), ([4,5,6]), ([7,8,9])]
-    # for o in a:
-    #     print(o)
-    # bc.get_demonstrations(num_episodes=1000000, expert_mode=True)
-    # bc.teach_agent(epochs=100)
-    # bc.demonstrate(num_episode=10)
