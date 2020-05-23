@@ -178,8 +178,8 @@ class BehaviourCloning:
             print("Invalid parameters")
 
 
-    def teach_agent(self, epochs=1, learn_rate=0.0001, batch_size=128, env_name = "BehaviourCloning"):
-        plotter = VisdomPlotter(env_name=env_name)
+    def teach_agent(self, epochs=1, learn_rate=0.0001, batch_size=128):
+        plotter = VisdomPlotter(env_name=self.env_string)
         expert_loader = Loader(data_collected=self.data_by_expert)
         optimizer = optim.Adam(self.agent.parameters(), lr=learn_rate)
         criterion = nn.MSELoss()
@@ -215,6 +215,7 @@ if __name__ == '__main__':
 
     bc = BehaviourCloning(env_string=environment, auto=True)
     bc.get_demonstrations(num_episodes=100, expert_mode=True)
-    bc.teach_agent(epochs=100, env_name=environment)
-    bc.agent.save_model(env_string=environment)
+    bc.teach_agent(epochs=100)
+    save_string = "bc_"+environment
+    bc.agent.save_model(env_string=save_string)
     bc.demonstrate(num_episode=10, expert_mode=False)
